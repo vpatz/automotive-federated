@@ -33,8 +33,43 @@
 
     python3 model_trainer.py
 
+It is expected that model weights will not converge during training as randomized data is used. 
+
 ### Model training using [`flower`](https://flower.ai/docs/framework/tutorial-quickstart-pytorch.html) FL library with `pytorch` model
 
-Following steps are required to run the demo for EV range model training using Federated Learning
+Following steps are required to run the demo for EV range model training using Federated Learning 
 
-- Use `flwr new` to create a template 
+#### Code changes
+
+1. Use `flwr new` to create a template director 
+2. Update model architecture and data source for the use case in `./ev_range_pred/task.py`
+    - Replace the CIFAR dataset with random data 
+    - Replace `flower_datasets` with `torch DataLoader`
+
+Above steps are completed in `./ev_range_pred` directory.
+
+#### Running the demo on `localhost`
+
+Run below commands in different terminals as given in deployment [tutorial](https://flower.ai/docs/framework/how-to-run-flower-with-deployment-engine.html).  
+
+
+##### Terminal 1 - Run superlink
+
+    flower-superlink --insecure
+
+##### Terminal 2 - Run supernode
+
+    flower-supernode \
+         --insecure \
+        --superlink 127.0.0.1:9092 \
+        --clientappio-api-address 127.0.0.1:9094 \
+        --node-config "partition-id=0 num-partitions=2"
+
+
+##### Terminal 3 - Run client (to be ported to run on the vehicle edge ECU) 
+
+    flower-superexec \
+        --insecure \
+        --plugin-type clientapp \
+        --appio-api-address zupernode-1:9094
+
