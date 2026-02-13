@@ -1,32 +1,28 @@
-# Federated Learning for Automotive 
+# Federated Learning in Automotive
 
-## Use case 1: EV battery range prediction model update using Federated Learning
+## Use case 1: EV battery range prediction model update 
 
-### Model inputs
-
-1. State of Charge (SOC) (%)
-2. Battery Voltage (V)
-3. Battery Temperature (C)
-4. Current Vehicle Speed (km/h or mph)
-5. Average Speed over the last 5 minutes
-6. Current draw (A) (can be inferred or included directly)
-7. State of Health (SOH) (%) (optional, useful for long-term accuracy)
-
-### Model output
-
-- Range (distance in km/miles)
+### Model inputs (features extracted from a time window)
 
 
-### Simulated data for training
 
-#### Input data generated as normalized (zero mean, unit variance) tensor 
+| Feature description  | Label | 
+|---------|-------------|
+|1. Initial State of Charge (SoC) (%)   | `soc_percent` |
+|2. Delta State of Charge (DSoC) (%)    | `delta_soc_percent` |
+|3. Total battery energy spend (kWh)    | `battery_energy_spend_kwh` |
+|4. Regen energy gain (kWh)             | `regen_energy_gain_kwh` |
+|5. Average speed  (km/h)               | `avg_speed_kmph` |
+|6. Vehicle mass (kg)                 | `vehicle_mass_kg` |
+|7. Distance travelled in time window (km) |   `distance_step_km` |
+| Model output - Remaining vehicle range (km) |    `remaining_range_km` |
 
-    EVdata = torch.randn(NUM_SAMPLES, INPUT_DIM) # 100 samples, 10 features each
 
-#### Output data is range in between (MIN_RANGE, MAX_RANGE)
-    MIN_RANGE = 0
-    MAX_RANGE = 100
-    EVrange = torch.FloatTensor(NUM_SAMPLES,1 ).uniform_(MIN_RANGE, MAX_RANGE) 
+### Using data from EV Ramnge Simulator for training/validation
+
+Using EV battery range simulator form [here.](https://github.com/vpatz/ev-distance-energy-sim) 
+Features are typically avilable or can be calculated from raw data published in the vehicle CAN bus.
+
 
 
 ### Model training (without Federated Learning)
