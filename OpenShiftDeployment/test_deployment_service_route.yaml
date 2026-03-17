@@ -1,0 +1,157 @@
+# Test Flask Server Deployment, Service, and Route for OpenShift
+# Apply: oc apply -f test_deployment_service_route.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flask-app-code
+  namespace: flower-demo
+data:
+  app.py: |
+    from flask import Flask, jsonify
+    import os
+    import socket
+
+    app = Flask(__name__)
+
+    @app.route('/')
+    def home():
+        return jsonify({
+            "message": "Hello from Flask on OpenShift!",
+            "hostname": socket.gethostname(),
+            "pod_ip": os.environ.get("POD_IP", "unknown")
+        })
+
+    @app.route('/health')
+    def health():
+        return jsonify({"status": "healthy"}), 200
+
+    @app.route('/ready')
+    def ready():
+        return jsonify({"status": "ready"}), 200
+
+    if __name__ == '__main__':
+        app.run(host='0.0.0.0', port=5000)
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-test-server
+  namespace: flower-demo
+  labels:
+    app: flask-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flask-test
+  template:
+    metadata:
+      labels:
+        app: flask-test
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: flask
+          image: python:3.11-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              pip install --user flask --quiet &&
+              python /app/app.py
+          ports:
+            - containerPort: 5000
+              name: http
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: HOME
+              value: /tmp
+            - name: PIP_CACHE_DIR
+              value: /tmp/.cache/pip
+            - name: PYTHONUSERBASE
+              value: /tmp/.local
+            - name: PATH
+              value: /tmp/.local/bin:/usr/local/bin:/usr/bin:/bin
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: app-code
+              mountPath: /app
+            - name: tmp-volume
+              mountPath: /tmp
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: app-code
+          configMap:
+            name: flask-app-code
+        - name: tmp-volume
+          emptyDir:
+            sizeLimit: 100Mi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-test-service
+  namespace: flower-demo
+  labels:
+    app: flask-test
+spec:
+  selector:
+    app: flask-test
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+      name: http
+  #type: ClusterIP
+  type: LoadBalancer
+
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: flask-test-route
+  namespace: flower-demo
+  labels:
+    app: flask-test
+spec:
+  to:
+    kind: Service
+    name: flask-test-service
+    #weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

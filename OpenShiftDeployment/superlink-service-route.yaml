@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: superlink-service
+  namespace: flower-demo
+  #annotations:
+    #service.beta.openshift.io/serving-cert-secret-name: superlink-tls
+  labels:
+    app: superlink
+spec:
+  selector:
+    app: superlink
+  ports:  # like a dynamic IP routing table/mapping that routes traffic to the designated ports
+  - protocol: TCP
+    port: 9095   # Port for SuperNode connection
+    targetPort: fleet  # the SuperLink container port
+    name: superlink-fleetapi
+  - protocol: TCP
+    port: 9093   # Port for Flower app submission
+    targetPort: control  # the SuperLink container port
+    name: superlink-controlapi
+  #type: LoadBalancer  # balances workload, makes the service publicly available
+  type: ClusterIP  
+
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: superlink-route
+  namespace: flower-demo
+  labels:
+    app: superlink
+  #  haproxy.router.openshift.io/timeout: 300s
+spec:
+  #host: api.crc.testing #superlink.flower-demo.apps.cluster-url.com  # Update with your cluster's apps domain
+  to:
+    kind: Service
+    name: superlink-service
+    #weight: 100
+  port:
+    targetPort: superlink-fleetapi
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

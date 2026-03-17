@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superlink
+  namespace: flower-demo # The project name from above
+  labels:
+    app: superlink
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: superlink
+  template:
+    metadata:
+      labels:
+        app: superlink
+    spec:
+      # Ensures mounted volumes are writable by the pod's non-root user on OpenShift
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: superlink
+          #image: flwr/superlink:1.26.1
+          image: flwr/superlink:latest
+          command: ["sh", "-c"]
+          #args: ["--insecure"] #, "--fleet-api-address", "0.0.0.0:444"]
+          args:
+            - >
+              pip install --no-cache-dir --target /tmp/pip-packages 'flwr[rest]' &&
+              export PYTHONPATH=/tmp/pip-packages:$PYTHONPATH &&
+              flower-superlink
+              --insecure
+              --fleet-api-type rest
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports: # which ports to expose/available
+            - containerPort: 9095
+              name: fleet
+            - containerPort: 9093
+              name: control
+      #     volumeMounts:
+      #       - name: tls-certs
+      #         mountPath: /etc/tls
+      #         readOnly: true
+      #       - name: ca-bundle
+      #         mountPath: /etc/ca
+      #         readOnly: true
+      # volumes:
+      #   - name: tls-certs
+      #     secret:
+      #       secretName: superlink-tls
+      #   - name: ca-bundle
+      #     configMap:
+      #       name: superlink-ca-bundle
+      #     #  - name: cache-volume
+          #    mountPath: /app/.cache
+          #  - name: tmp-volume
+          #    mountPath: /var/tmp
+          #  - name: fab-volume
+          #    mountPath: /app/.flwr
+          #  - name: config-volume
+          #    mountPath: /app/.config
+      #volumes:
+      #  - name: cache-volume
+      #    emptyDir:
+      #      sizeLimit: 50Mi
+      #  - name: tmp-volume
+      #    emptyDir:
+      #      sizeLimit: 50Mi
+      #  - name: fab-volume
+      #    emptyDir:
+      #      sizeLimit: 50Mi
+      #  - name: config-volume
+      #    emptyDir:
+      #      sizeLimit: 50Mi
